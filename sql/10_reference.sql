@@ -18,6 +18,46 @@ CREATE TABLE IF NOT EXISTS TIER_REF (
   tier_name  VARCHAR(50) NOT NULL
 );
 
+-- The Member File layout from the design document, as data. Header validation
+-- reads it; header_name is the spelling used in the H record.
+CREATE TABLE IF NOT EXISTS MEMBER_FILE_LAYOUT (
+  header_name         VARCHAR(50)  NOT NULL PRIMARY KEY,
+  spec_name           VARCHAR(50)  NOT NULL,
+  spec_position       NUMBER(2)    NOT NULL,
+  spec_data_type      VARCHAR(20)  NOT NULL,
+  max_length          NUMBER(4)    NOT NULL,
+  is_mandatory        BOOLEAN      NOT NULL,
+  required_in_header  BOOLEAN      NOT NULL
+);
+
+MERGE INTO MEMBER_FILE_LAYOUT t
+USING (
+  SELECT column1 AS header_name, column2 AS spec_name, column3 AS spec_position,
+         column4 AS spec_data_type, column5 AS max_length, column6 AS is_mandatory,
+         column7 AS required_in_header
+  FROM VALUES
+    ('Member_Name',      'Member Name',      1,  'VARCHAR', 255, TRUE,  TRUE),
+    ('Member_Id',        'Member ID',        2,  'VARCHAR', 18,  TRUE,  TRUE),
+    ('Enrollment_Date',  'Enrollment Date',  3,  'DATE',    8,   TRUE,  TRUE),
+    ('Last_Flight_Date', 'Last Flight Date', 4,  'DATE',    8,   FALSE, TRUE),
+    ('Tier_Code',        'Tier Code',        5,  'CHAR',    5,   FALSE, TRUE),
+    ('Agent_Name',       'Agent Name',       6,  'CHAR',    255, FALSE, TRUE),
+    ('State',            'State',            7,  'CHAR',    5,   FALSE, TRUE),
+    ('Country',          'Country',          8,  'CHAR',    5,   FALSE, TRUE),
+    -- In the spec but absent from the sample file: accepted when present.
+    ('Post_Code',        'Post Code',        9,  'INT',     5,   FALSE, FALSE),
+    ('DOB',              'Date of Birth',    10, 'DATE',    8,   FALSE, TRUE),
+    ('Is_Active',        'Active Member',    11, 'CHAR',    1,   FALSE, TRUE)
+) s
+ON t.header_name = s.header_name
+WHEN MATCHED THEN UPDATE SET
+  spec_name = s.spec_name, spec_position = s.spec_position, spec_data_type = s.spec_data_type,
+  max_length = s.max_length, is_mandatory = s.is_mandatory, required_in_header = s.required_in_header
+WHEN NOT MATCHED THEN INSERT
+  (header_name, spec_name, spec_position, spec_data_type, max_length, is_mandatory, required_in_header)
+  VALUES (s.header_name, s.spec_name, s.spec_position, s.spec_data_type, s.max_length,
+          s.is_mandatory, s.required_in_header);
+
 MERGE INTO COUNTRY_REF t
 USING (
   SELECT column1 AS country_code, column2 AS country_name, column3 AS target_table
