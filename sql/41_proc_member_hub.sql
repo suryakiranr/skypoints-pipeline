@@ -13,6 +13,8 @@ LANGUAGE SQL
 EXECUTE AS CALLER
 AS
 $$
+DECLARE
+  rows_merged NUMBER;
 BEGIN
   MERGE INTO MEMBER_HUB t
   USING (
@@ -54,6 +56,8 @@ BEGIN
     CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
   );
 
-  RETURN OBJECT_CONSTRUCT('rows_merged', SQLROWCOUNT);
+  -- Via a NUMBER variable: SQLROWCOUNT placed directly in OBJECT_CONSTRUCT serialises as text.
+  rows_merged := SQLROWCOUNT;
+  RETURN OBJECT_CONSTRUCT('rows_merged', rows_merged);
 END;
 $$;

@@ -193,6 +193,8 @@ LANGUAGE SQL
 EXECUTE AS CALLER
 AS
 $$
+DECLARE
+  rows_merged NUMBER;
 BEGIN
   MERGE INTO REDEMPTION_CURRENT t
   USING (
@@ -219,6 +221,8 @@ BEGIN
     s.batch_id, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
   );
 
-  RETURN OBJECT_CONSTRUCT('rows_merged', SQLROWCOUNT);
+  -- Via a NUMBER variable: SQLROWCOUNT placed directly in OBJECT_CONSTRUCT serialises as text.
+  rows_merged := SQLROWCOUNT;
+  RETURN OBJECT_CONSTRUCT('rows_merged', rows_merged);
 END;
 $$;
