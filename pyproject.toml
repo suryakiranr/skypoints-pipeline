@@ -39,3 +39,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# Feed fixture lines are kept whole so they read like the files they represent.
+"tests/integration/conftest.py" = ["E501"]
