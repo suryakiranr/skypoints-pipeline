@@ -21,10 +21,11 @@ BEGIN
   BEGIN TRANSACTION;
 
   DELETE FROM WRK_REDEMPTION_RECORDS;
-  INSERT INTO WRK_REDEMPTION_RECORDS (file_name, file_row_number, raw_record)
+  INSERT INTO WRK_REDEMPTION_RECORDS (file_name, file_row_number, raw_line, raw_record)
     SELECT REGEXP_REPLACE(REGEXP_SUBSTR(file_path, '[^/]+$'), '[.]gz$', ''),
            file_row_number,
-           raw_record
+           RTRIM(raw_line, '\r'),
+           TRY_PARSE_JSON(RTRIM(raw_line, '\r'))
     FROM LND_REDEMPTION_FEED_STREAM;
 
   INSERT INTO FILE_BATCH (run_id, feed_type, file_name, business_date, file_ts, status, status_reason)
@@ -45,9 +46,10 @@ BEGIN
     ) n
     WHERE NOT EXISTS (SELECT 1 FROM FILE_BATCH b WHERE b.file_name = n.file_name);
 
-  -- Flatten and classify. A member object whose "redemptions" is missing or
-  -- not an array yields one row with redemption_index NULL and is rejected
-  -- whole; an empty array is a member with nothing to report and yields none.
+  -- Flatten and classify. A line that is not a JSON object, or whose
+  -- "redemptions" is missing or not an array, yields one row with
+  -- redemption_index NULL and is rejected whole; an empty array is a member
+  -- with nothing to report and yields no rows.
   DELETE FROM WRK_REDEMPTION_PARSED;
   INSERT INTO WRK_REDEMPTION_PARSED (
     batch_id, file_name, file_ts, file_row_number, redemption_index, event_order,
@@ -63,11 +65,12 @@ BEGIN
     status, raw_redemption,
 
     ARRAY_COMPACT(ARRAY_CONSTRUCT(
-      IFF(member_id IS NULL,                               'MEMBER_ID_MISSING', NULL),
+      IFF(NOT is_object, IFF(raw_record IS NULL, 'INVALID_JSON', 'RECORD_NOT_OBJECT'), NULL),
+      IFF(is_object AND member_id IS NULL,                 'MEMBER_ID_MISSING', NULL),
       IFF(LENGTH(member_id) > 18,                          'MEMBER_ID_TOO_LONG', NULL),
-      IFF(feed_date_raw IS NULL,                           'FEED_DATE_MISSING', NULL),
+      IFF(is_object AND feed_date_raw IS NULL,             'FEED_DATE_MISSING', NULL),
       IFF(feed_date_raw IS NOT NULL AND feed_date IS NULL, 'FEED_DATE_INVALID', NULL),
-      IFF(redemption_index IS NULL,                        'REDEMPTIONS_NOT_ARRAY', NULL),
+      IFF(is_object AND redemption_index IS NULL,          'REDEMPTIONS_NOT_ARRAY', NULL),
       IFF(redemption_index IS NOT NULL AND txn_id IS NULL, 'TXN_ID_MISSING', NULL),
       IFF(LENGTH(txn_id) > 50,                             'TXN_ID_TOO_LONG', NULL),
       IFF(redemption_index IS NOT NULL AND txn_date IS NULL, 'TXN_DATE_INVALID', NULL),
@@ -89,8 +92,10 @@ BEGIN
            IFF(txn_id IS NULL, 1, COUNT(*) OVER (PARTITION BY batch_id, txn_id)) AS rows_for_txn_in_file
     FROM (
       SELECT r.batch_id, r.file_name, r.file_ts, r.business_date, r.file_row_number,
+             r.raw_record,
+             COALESCE(IS_OBJECT(r.raw_record), FALSE) AS is_object,
              x.index AS redemption_index,
-             x.value AS raw_redemption,
+             COALESCE(x.value, r.raw_record, TO_VARIANT(r.raw_line)) AS raw_redemption,
              NULLIF(TRIM(r.raw_record:member_id::STRING), '') AS member_id,
              NULLIF(TRIM(r.raw_record:feed_date::STRING), '') AS feed_date_raw,
              IFF(REGEXP_LIKE(feed_date_raw, '[0-9]{8}'), TRY_TO_DATE(feed_date_raw, 'YYYYMMDD'), NULL) AS feed_date,
@@ -102,7 +107,7 @@ BEGIN
              TRY_TO_NUMBER(x.value:miles_redeemed::STRING, 38, 4) AS miles_number,
              UPPER(NULLIF(TRIM(x.value:status::STRING), '')) AS status
       FROM (
-        SELECT fb.batch_id, fb.file_name, fb.file_ts, fb.business_date, w.file_row_number, w.raw_record
+        SELECT fb.batch_id, fb.file_name, fb.file_ts, fb.business_date, w.file_row_number, w.raw_line, w.raw_record
         FROM WRK_REDEMPTION_RECORDS w
         JOIN FILE_BATCH fb ON fb.file_name = w.file_name
         WHERE fb.run_id = :this_run AND fb.status = 'PENDING'

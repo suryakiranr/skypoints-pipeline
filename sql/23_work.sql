@@ -43,7 +43,8 @@ CREATE TRANSIENT TABLE IF NOT EXISTS WRK_HUB_CHANGES (
 CREATE TRANSIENT TABLE IF NOT EXISTS WRK_REDEMPTION_RECORDS (
   file_name        VARCHAR(500) NOT NULL,
   file_row_number  NUMBER       NOT NULL,
-  raw_record       VARIANT      NOT NULL
+  raw_line         VARCHAR      NOT NULL,
+  raw_record       VARIANT                 -- NULL when the line is not valid JSON
 );
 
 CREATE TRANSIENT TABLE IF NOT EXISTS WRK_REDEMPTION_PARSED (

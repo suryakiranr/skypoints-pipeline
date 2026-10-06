@@ -4,10 +4,15 @@
 -- deployer (skypoints.deploy) selects it. That is what lets integration tests
 -- deploy the whole pipeline into a throwaway schema.
 
--- Member File: each physical line lands whole, as text. Splitting on '|' and
--- matching columns by header name happens in SQL, so a layout change surfaces
--- as a validation failure instead of silently shifted columns.
-CREATE OR REPLACE FILE FORMAT FF_MEMBER_LINE
+-- Both feeds land one physical line per row, as text, so COPY can never fail
+-- or silently skip on content:
+--   * Member File: splitting on '|' and matching columns by header name happen
+--     in SQL, so a layout change surfaces as a validation failure instead of
+--     silently shifted columns.
+--   * Redemption Feed: newline-delimited JSON, one member object per line,
+--     parsed with TRY_PARSE_JSON, so a malformed line becomes a Reject rather
+--     than aborting or vanishing from the load.
+CREATE OR REPLACE FILE FORMAT FF_TEXT_LINE
   TYPE = CSV
   FIELD_DELIMITER = NONE
   RECORD_DELIMITER = '\n'
@@ -19,13 +24,6 @@ CREATE OR REPLACE FILE FORMAT FF_MEMBER_LINE
   TRIM_SPACE = FALSE
   EMPTY_FIELD_AS_NULL = FALSE
   ENCODING = 'UTF8'
-  COMPRESSION = AUTO;
-
--- Redemption Feed: newline-delimited JSON, one member object per line. A
--- top-level JSON array is also accepted (STRIP_OUTER_ARRAY).
-CREATE OR REPLACE FILE FORMAT FF_REDEMPTION_JSON
-  TYPE = JSON
-  STRIP_OUTER_ARRAY = TRUE
   COMPRESSION = AUTO;
 
 -- Files arrive under member/ and redemption/ prefixes.

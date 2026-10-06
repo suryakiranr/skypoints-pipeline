@@ -2,7 +2,13 @@ from datetime import date, datetime
 
 import pytest
 
-from skypoints.filenames import Feed, FeedFileName, InvalidFileName, build_file_name, parse_file_name
+from skypoints.filenames import (
+    Feed,
+    FeedFileName,
+    InvalidFileName,
+    build_file_name,
+    parse_file_name,
+)
 
 
 def test_parses_member_file_name():

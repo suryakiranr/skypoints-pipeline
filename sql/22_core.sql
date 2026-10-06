@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS REDEMPTION_REJECTS (
   redemption_index  NUMBER,                  -- NULL when the whole member object is bad
   member_id         VARCHAR,
   txn_id            VARCHAR,
-  raw_redemption    VARIANT,
+  raw_redemption    VARIANT,                 -- the redemption, or the whole line for record-level rejects
   reject_reasons    ARRAY         NOT NULL,
   rejected_at       TIMESTAMP_LTZ NOT NULL DEFAULT CURRENT_TIMESTAMP()
 );

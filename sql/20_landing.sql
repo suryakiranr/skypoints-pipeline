@@ -13,6 +13,6 @@ CREATE TABLE IF NOT EXISTS LND_MEMBER_FILE (
 CREATE TABLE IF NOT EXISTS LND_REDEMPTION_FEED (
   file_path        VARCHAR(1000) NOT NULL,
   file_row_number  NUMBER        NOT NULL,
-  raw_record       VARIANT       NOT NULL,  -- one member object with its redemptions
+  raw_line         VARCHAR       NOT NULL,  -- one JSON member object with its redemptions
   landed_at        TIMESTAMP_LTZ NOT NULL DEFAULT CURRENT_TIMESTAMP()
 );

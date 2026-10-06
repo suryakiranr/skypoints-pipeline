@@ -46,9 +46,7 @@ def split_statements(sql: str) -> list[str]:
         elif ch == "'":
             j = i + 1
             while j < n:
-                if sql[j] == "\\":
-                    j += 2
-                elif sql.startswith("''", j):
+                if sql[j] == "\\" or sql.startswith("''", j):
                     j += 2
                 elif sql[j] == "'":
                     j += 1
